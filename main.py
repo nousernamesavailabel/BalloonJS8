@@ -28,37 +28,50 @@ def receive_remote_message(server_socket):
 	return remote_address[0], remote_address[1], message
 
 def maidenhead_to_latlon(grid):
-    """
-    Convert a Maidenhead grid locator (2 to 8 characters) to (lat, lon).
-    Returns the center point of the grid square in decimal degrees.
-    """
-    if len(grid) < 2 or len(grid) % 2 != 0 or len(grid) > 8:
-        raise ValueError("Maidenhead grid must be 2, 4, 6, or 8 characters long.")
+	"""
+	Convert Maidenhead grid (2 to 10 characters) to (latitude, longitude) in decimal degrees.
+	Returns the center point of the grid square.
+	"""
+	if len(grid) < 2 or len(grid) % 2 != 0 or len(grid) > 10:
+		raise ValueError("Maidenhead grid must be 2, 4, 6, 8, or 10 characters long.")
 
-    grid = grid.upper()
+	grid = grid.upper()
 
-    lon = -180 + (ord(grid[0]) - ord('A')) * 20
-    lat = -90 + (ord(grid[1]) - ord('A')) * 10
+	lon = -180 + (ord(grid[0]) - ord('A')) * 20
+	lat = -90 + (ord(grid[1]) - ord('A')) * 10
 
-    if len(grid) >= 4:
-        lon += int(grid[2]) * 2
-        lat += int(grid[3]) * 1
+	if len(grid) >= 4:
+		lon += int(grid[2]) * 2
+		lat += int(grid[3]) * 1
 
-    if len(grid) >= 6:
-        lon += (ord(grid[4]) - ord('A')) * 5.0 / 60
-        lat += (ord(grid[5]) - ord('A')) * 2.5 / 60
+	if len(grid) >= 6:
+		lon += (ord(grid[4]) - ord('A')) * (5.0 / 60)
+		lat += (ord(grid[5]) - ord('A')) * (2.5 / 60)
 
-    if len(grid) == 8:
-        lon += int(grid[6]) * 5.0 / 600
-        lat += int(grid[7]) * 2.5 / 600
+	if len(grid) >= 8:
+		lon += int(grid[6]) * (5.0 / 600)
+		lat += int(grid[7]) * (2.5 / 600)
 
-    # Add half the grid size to get center
-    precision = {2: (10, 20), 4: (1, 2), 6: (2.5 / 60, 5.0 / 60), 8: (2.5 / 600, 5.0 / 600)}
-    lat_prec, lon_prec = precision[len(grid)]
-    lat += lat_prec / 2
-    lon += lon_prec / 2
+	if len(grid) == 10:
+		print(f'\n\n***** 10 DIGIT GRID: {grid} *****\n\n')
+		lon += (ord(grid[8]) - ord('A')) * (5.0 / 600 / 24)
+		lat += (ord(grid[9]) - ord('A')) * (2.5 / 600 / 24)
 
-    return round(lat, 6), round(lon, 6)
+	# Grid precision lookup for adding half-cell offset
+	precision = {
+		2: (10, 20),
+		4: (1, 2),
+		6: (2.5 / 60, 5.0 / 60),
+		8: (2.5 / 600, 5.0 / 600),
+		10: (2.5 / 600 / 24, 5.0 / 600 / 24),
+	}
+
+	lat_prec, lon_prec = precision[len(grid)]
+	lat += lat_prec / 2
+	lon += lon_prec / 2
+
+	return round(lat, 6), round(lon, 6)
+
 
 
 def process_packet(remote_ip, remote_port, data):
@@ -79,16 +92,17 @@ def process_packet(remote_ip, remote_port, data):
 	call = params.get('CALL')
 	grid = params.get('GRID')
 	text = params.get('TEXT')
+	snr = params.get('SNR')
 
 	if call and grid:
 		lat, lon = maidenhead_to_latlon(grid.strip())
 		print(f"Callsign: {call} - Maidenhead: {grid} - Lat: {lat} - Lon: {lon}")
-		send_to_tak(call, lat, lon)
+		send_to_tak(call, lat, lon, snr)
 
 	if text:
 		print(f"Text received: {text}")
 
-def send_to_tak(call, lat, lon):
+def send_to_tak(call, lat, lon, snr):
 
 	try:
 
@@ -111,17 +125,18 @@ def send_to_tak(call, lat, lon):
 
 		# Define the XML payload using the parsed values, current time, and stale time
 		cot_xml = f"""<?xml version="1.0" encoding="utf-16"?>
-	        <COT>
-	          <event version="2.0" uid="{call}" type="{icontype}" how="h-g-i-g-o" time="{current_time_str}" start="{current_time_str}" stale="{stale_time_str}">
-	            <point lat="{lat}" lon="{lon}" hae="0" le="9999999" ce="9999999" />
-	            <detail>
-	              <contact callsign="{call}" />
-	              <link type="a-f-G-E-V-A" uid="S-1-5-21-621230609-327008285-3454491554-500" parent_callsign="2JCS - B" relation="p-p" production_time="{current_time_str}" />
-	              <archive />
-	              <usericon iconsetpath="{iconsetpath}" />
-	            </detail>
-	          </event>
-	        </COT>"""
+			<COT>
+			  <event version="2.0" uid="{call}" type="{icontype}" how="h-g-i-g-o" time="{current_time_str}" start="{current_time_str}" stale="{stale_time_str}">
+				<point lat="{lat}" lon="{lon}" hae="0" le="9999999" ce="9999999" />
+				<detail>
+				  <contact callsign="{call}" />
+				  <link type="a-f-G-E-V-A" uid="S-1-5-21-621230609-327008285-3454491554-500" parent_callsign="2JCS - B" relation="p-p" production_time="{current_time_str}" />
+				  <archive />
+				  <usericon iconsetpath="{iconsetpath}" />
+				  <remarks>SNR: {snr}</remarks>
+				</detail>
+			  </event>
+			</COT>"""
 
 		# Create an HTTP connection to the server
 		conn = http.client.HTTPConnection(TAK_SERVER_ADDRESS, TAK_SERVER_PORT)
