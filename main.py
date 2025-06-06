@@ -6,6 +6,8 @@ from datetime import datetime, timezone, timedelta
 LISTEN_ADDRESS = '0.0.0.0'
 JS8CALL_PORT = 2242
 LOG_PATH = 'log.txt'
+TAK_SERVER_ADDRESS = '192.168.5.14'
+TAK_SERVER_PORT = 8087
 
 
 def log_message(message):
@@ -83,8 +85,7 @@ def process_packet(remote_ip, remote_port, data):
 		send_to_tak(call, lat, lon)
 
 def send_to_tak(call, lat, lon):
-	tak_server_address = '192.168.5.14'
-	tak_server_port = 8087
+
 	try:
 
 		type = "F"
@@ -119,7 +120,7 @@ def send_to_tak(call, lat, lon):
 	        </COT>"""
 
 		# Create an HTTP connection to the server
-		conn = http.client.HTTPConnection(tak_server_address, tak_server_port)
+		conn = http.client.HTTPConnection(TAK_SERVER_ADDRESS, TAK_SERVER_PORT)
 
 		# Define the headers for the request
 		headers = {"Content-type": "application/xml"}
