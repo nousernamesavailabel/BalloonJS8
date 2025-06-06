@@ -1,7 +1,7 @@
 import socket
 import json
 import http.client
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 
 LISTEN_ADDRESS = '0.0.0.0'
 JS8CALL_PORT = 2242
@@ -97,11 +97,11 @@ def send_to_tak(call, lat, lon):
 			iconsetpath = "COT_MAPPING_2525B/a-h/a-h-G"
 
 		# Get the current time and format it as required
-		current_time = datetime.utcnow()
+		current_time = datetime.now(timezone.utc)
 		current_time_str = current_time.strftime('%Y-%m-%dT%H:%M:%SZ')
 
 		# Calculate the stale time as 24 hours after the current time
-		stale_time = current_time + timedelta(hours=24)
+		stale_time = current_time + timedelta(hours=1)
 		stale_time_str = stale_time.strftime('%Y-%m-%dT%H:%M:%SZ')
 
 		# Define the XML payload using the parsed values, current time, and stale time
