@@ -78,11 +78,15 @@ def process_packet(remote_ip, remote_port, data):
 
 	call = params.get('CALL')
 	grid = params.get('GRID')
+	text = params.get('TEXT')
 
 	if call and grid:
 		lat, lon = maidenhead_to_latlon(grid.strip())
 		print(f"Callsign: {call} - Maidenhead: {grid} - Lat: {lat} - Lon: {lon}")
 		send_to_tak(call, lat, lon)
+
+	if text:
+		print(f"Text received: {text}")
 
 def send_to_tak(call, lat, lon):
 
