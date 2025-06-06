@@ -1,49 +1,162 @@
 import socket
 import json
+import http.client
+from datetime import datetime, timedelta
 
-udp_server_info = ['0.0.0.0', 2242]
-log_path = 'log.txt'
+LISTEN_ADDRESS = '0.0.0.0'
+JS8CALL_PORT = 2242
+LOG_PATH = 'log.txt'
 
-def udp_server(udp_server_info):
-	global log_path
-	#Create a UDP server socket
-	udp_server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-	#bind socket to port
-	udp_server.bind((udp_server_info[0], int(udp_server_info[1])))
-	print(f'UDP server is listening on port {udp_server_info[1]}')
 
-	#open log file to write
-	with open (log_path, 'a') as log_file:
-		log_file.write('Decoder Starting...\n')
+def log_message(message):
+	with open(LOG_PATH, 'a', encoding='utf-8') as f:
+		f.write(f'{message}\n')
+
+
+def create_udp_server(address, port):
+	server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+	server.bind((address, port))
+	print(f'UDP server is listening on {address}:{port}')
+	log_message('Decoder Starting...')
+	return server
+
+
+def receive_remote_message(server_socket):
+	message, remote_address = server_socket.recvfrom(1024)
+	return remote_address[0], remote_address[1], message
+
+def maidenhead_to_latlon(grid):
+    """
+    Convert a Maidenhead grid locator (2 to 8 characters) to (lat, lon).
+    Returns the center point of the grid square in decimal degrees.
+    """
+    if len(grid) < 2 or len(grid) % 2 != 0 or len(grid) > 8:
+        raise ValueError("Maidenhead grid must be 2, 4, 6, or 8 characters long.")
+
+    grid = grid.upper()
+
+    lon = -180 + (ord(grid[0]) - ord('A')) * 20
+    lat = -90 + (ord(grid[1]) - ord('A')) * 10
+
+    if len(grid) >= 4:
+        lon += int(grid[2]) * 2
+        lat += int(grid[3]) * 1
+
+    if len(grid) >= 6:
+        lon += (ord(grid[4]) - ord('A')) * 5.0 / 60
+        lat += (ord(grid[5]) - ord('A')) * 2.5 / 60
+
+    if len(grid) == 8:
+        lon += int(grid[6]) * 5.0 / 600
+        lat += int(grid[7]) * 2.5 / 600
+
+    # Add half the grid size to get center
+    precision = {2: (10, 20), 4: (1, 2), 6: (2.5 / 60, 5.0 / 60), 8: (2.5 / 600, 5.0 / 600)}
+    lat_prec, lon_prec = precision[len(grid)]
+    lat += lat_prec / 2
+    lon += lon_prec / 2
+
+    return round(lat, 6), round(lon, 6)
+
+
+def process_packet(remote_ip, remote_port, data):
+	try:
+		decoded = data.decode()
+		json_data = json.loads(decoded)
+	except Exception:
+		print(f"Decode error in: {data}")
+		log_message(f"Decode error in: {data}")
+		return
+
+	log_message(str(json_data))
+	print(f"JS8 UDP CONNECTION: {remote_ip}:{remote_port}")
+	print(f"json_data: {json_data.get('params', {})}")
+
+	params = json_data.get('params', {})
+
+	call = params.get('CALL')
+	grid = params.get('GRID')
+
+	if call and grid:
+		lat, lon = maidenhead_to_latlon(grid.strip())
+		print(f"Callsign: {call} - Maidenhead: {grid} - Lat: {lat} - Lon: {lon}")
+		send_to_tak(call, lat, lon)
+
+def send_to_tak(call, lat, lon):
+	tak_server_address = '192.168.5.14'
+	tak_server_port = 8087
+	try:
+
+		type = "F"
+
+		if type == "F":
+			icontype = "a-n-g"
+			iconsetpath = "COT_MAPPING_2525B/a-n/a-n-G"
+		else:
+			icontype = "a-h-g"
+			iconsetpath = "COT_MAPPING_2525B/a-h/a-h-G"
+
+		# Get the current time and format it as required
+		current_time = datetime.utcnow()
+		current_time_str = current_time.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+		# Calculate the stale time as 24 hours after the current time
+		stale_time = current_time + timedelta(hours=24)
+		stale_time_str = stale_time.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+		# Define the XML payload using the parsed values, current time, and stale time
+		cot_xml = f"""<?xml version="1.0" encoding="utf-16"?>
+	        <COT>
+	          <event version="2.0" uid="{call}" type="{icontype}" how="h-g-i-g-o" time="{current_time_str}" start="{current_time_str}" stale="{stale_time_str}">
+	            <point lat="{lat}" lon="{lon}" hae="0" le="9999999" ce="9999999" />
+	            <detail>
+	              <contact callsign="{call}" />
+	              <link type="a-f-G-E-V-A" uid="S-1-5-21-621230609-327008285-3454491554-500" parent_callsign="2JCS - B" relation="p-p" production_time="{current_time_str}" />
+	              <archive />
+	              <usericon iconsetpath="{iconsetpath}" />
+	            </detail>
+	          </event>
+	        </COT>"""
+
+		# Create an HTTP connection to the server
+		conn = http.client.HTTPConnection(tak_server_address, tak_server_port)
+
+		# Define the headers for the request
+		headers = {"Content-type": "application/xml"}
+
+		# Send an HTTP POST request with the XML payload
+		print(cot_xml)
+		conn.request("POST", "/", body=cot_xml, headers=headers)
+
+		# Return a success status code (e.g., 200) to indicate that the request was sent
+		return 200
+
+	except Exception as e:
+		# Handle exceptions here
+		print("Error in SendCot:", str(e))
+		# Return an error status code (e.g., 500) to indicate that an exception occurred
+		return 500
+
+	finally:
+		if conn is not None:
+			# Close the connection if it was created
+			conn.close()
+			print("Success!")
+
+
+# Future expansion:
+	# if 'GRID' in message text:
+	#     convert to lat/lon
+	#     create and send CoT to TAK server
+
+
+def main():
+	server = create_udp_server(LISTEN_ADDRESS, JS8CALL_PORT)
+
 	while True:
-		remote = receive_remote(udp_server)  # Update the global remote variable
-		print(f"JS8 UDP CONNECTION: {remote[0]}:{remote[1]}")
-
-		json_data = None  # Ensure it exists even if decoding fails
-
-		try:
-			json_data = json.loads(remote[2].decode())
-		except:
-			print(f"decode error in {remote[2]}")
-			with open (log_path, 'a') as log_file:
-				log_file.write(f'decode error in {remote[2]}\n')
-			json_data = None
-
-		if json_data:
-			with open (log_path, 'a') as log_file:
-				log_file.write(f'{json_data}\n')
-			print(f"json_data: {json_data['params']}")
-			if 'CALL' in json_data['params']:
-				print(f"Callsign: {json_data['params']['CALL']}")
-
-
-# print("Received message from JS8:", remote[2])
-
-def receive_remote(udp_server):
-	message, remote_address = udp_server.recvfrom(1024)
-	#print(f"Received message from {remote_address[0]}:{remote_address[1]}: {message.decode()}")
-	return (remote_address[0], remote_address[1], message)
+		remote_ip, remote_port, message = receive_remote_message(server)
+		process_packet(remote_ip, remote_port, message)
 
 
 if __name__ == '__main__':
-	udp_server(udp_server_info)
+	main()
