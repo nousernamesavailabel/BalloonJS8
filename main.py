@@ -84,8 +84,8 @@ def process_packet(remote_ip, remote_port, data):
 		return
 
 	log_message(str(json_data))
-	print(f"JS8 UDP CONNECTION: {remote_ip}:{remote_port}")
-	print(f"json_data: {json_data.get('params', {})}")
+	#print(f"JS8 UDP CONNECTION: {remote_ip}:{remote_port}")
+	#print(f"json_data: {json_data.get('params', {})}")
 
 	params = json_data.get('params', {})
 
@@ -96,7 +96,7 @@ def process_packet(remote_ip, remote_port, data):
 
 	if call and grid:
 		lat, lon = maidenhead_to_latlon(grid.strip())
-		print(f"Callsign: {call} - Maidenhead: {grid} - Lat: {lat} - Lon: {lon}")
+		print(f"\nCallsign: {call} - Maidenhead: {grid} - Lat: {lat} - Lon: {lon}")
 		send_to_tak(call, lat, lon, snr)
 
 	if text:
@@ -130,7 +130,7 @@ def send_to_tak(call, lat, lon, snr):
 				<point lat="{lat}" lon="{lon}" hae="0" le="9999999" ce="9999999" />
 				<detail>
 				  <contact callsign="{call}" />
-				  <link type="a-f-G-E-V-A" uid="S-1-5-21-621230609-327008285-3454491554-500" parent_callsign="2JCS - B" relation="p-p" production_time="{current_time_str}" />
+				  <link type="a-f-G-E-V-A" uid="S-1-5-21-621230609-327008285-3454491554-500" parent_callsign="BalloonJS8RX" relation="p-p" production_time="{current_time_str}" />
 				  <archive />
 				  <usericon iconsetpath="{iconsetpath}" />
 				  <remarks>SNR: {snr}</remarks>
@@ -145,7 +145,7 @@ def send_to_tak(call, lat, lon, snr):
 		headers = {"Content-type": "application/xml"}
 
 		# Send an HTTP POST request with the XML payload
-		print(cot_xml)
+		#print(cot_xml)
 		conn.request("POST", "/", body=cot_xml, headers=headers)
 
 		# Return a success status code (e.g., 200) to indicate that the request was sent
@@ -161,7 +161,7 @@ def send_to_tak(call, lat, lon, snr):
 		if conn is not None:
 			# Close the connection if it was created
 			conn.close()
-			print("Success!")
+			print(f'{call} successfully sent to TAK server {TAK_SERVER_ADDRESS}:{TAK_SERVER_PORT}\n')
 
 
 # Future expansion:
