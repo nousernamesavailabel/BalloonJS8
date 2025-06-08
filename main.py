@@ -106,14 +106,20 @@ def send_to_tak(call, lat, lon, snr):
 
 	try:
 
-		type = "F"
+		if call.upper() == 'K4WAR':
+			type = "E"
+		else:
+			type = "F"
 
 		if type == "F":
 			icontype = "a-n-g"
 			iconsetpath = "COT_MAPPING_2525B/a-n/a-n-G"
-		else:
+		elif type == "E":
 			icontype = "a-h-g"
 			iconsetpath = "COT_MAPPING_2525B/a-h/a-h-G"
+		else:
+			icontype = "a-n-g"
+			iconsetpath = "COT_MAPPING_2525B/a-n/a-n-G"
 
 		# Get the current time and format it as required
 		current_time = datetime.now(timezone.utc)
