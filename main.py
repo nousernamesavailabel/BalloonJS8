@@ -6,6 +6,7 @@ from datetime import datetime, timezone, timedelta
 LISTEN_ADDRESS = '0.0.0.0'
 JS8CALL_PORT = 2242
 LOG_PATH = 'log.txt'
+MESSAGE_LOG_PATH = 'messages.txt'
 TAK_SERVER_ADDRESS = '192.168.5.14'
 TAK_SERVER_PORT = 8087
 BALLOON_CALLSIGN = 'K4WAR'
@@ -15,6 +16,9 @@ def log_message(message):
 	with open(LOG_PATH, 'a', encoding='utf-8') as f:
 		f.write(f'{message}\n')
 
+def log_message_message(message):
+	with open(MESSAGE_LOG_PATH, 'a', encoding='utf-8') as file:
+		file.write(f'{message}\n')
 
 def create_udp_server(address, port):
 	server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -98,10 +102,12 @@ def process_packet(remote_ip, remote_port, data):
 	if call and grid:
 		lat, lon = maidenhead_to_latlon(grid.strip())
 		print(f"\nCallsign: {call} - Maidenhead: {grid} - Lat: {lat} - Lon: {lon}")
+		log_message_message(f"\nCallsign: {call} - Maidenhead: {grid} - Lat: {lat} - Lon: {lon}")
 		send_to_tak(call, lat, lon, snr)
 
 	if text:
 		print(f"Text received: {text}")
+		log_message_message(f"Text received: {text}")
 
 def send_to_tak(call, lat, lon, snr):
 
