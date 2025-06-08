@@ -139,6 +139,8 @@ def main():
     #maidenhead = 'EM83WL07UI'
     message = build_aprs_message(maidenhead)
 
+
+    #remote_ip, remote_port = ('127.0.0.1',12345)
     print(f"Sending {message} to {remote_ip}:{remote_port}")
     send_udp_message(remote_ip, remote_port, message)
 
