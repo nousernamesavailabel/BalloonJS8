@@ -8,6 +8,7 @@ JS8CALL_PORT = 2242
 LOG_PATH = 'log.txt'
 TAK_SERVER_ADDRESS = '192.168.5.14'
 TAK_SERVER_PORT = 8087
+BALLOON_CALLSIGN = 'K4WAR'
 
 
 def log_message(message):
@@ -106,7 +107,7 @@ def send_to_tak(call, lat, lon, snr):
 
 	try:
 
-		if call.upper() == 'K4WAR':
+		if call.upper() == BALLOON_CALLSIGN:
 			type = "E"
 		else:
 			type = "F"
