@@ -176,20 +176,12 @@ def send_to_tak(call, lat, lon, snr):
 			conn.close()
 			print(f'{call} successfully sent to TAK server {TAK_SERVER_ADDRESS}:{TAK_SERVER_PORT}\n')
 
-
-# Future expansion:
-	# if 'GRID' in message text:
-	#     convert to lat/lon
-	#     create and send CoT to TAK server
-
-
 def main():
 	server = create_udp_server(LISTEN_ADDRESS, JS8CALL_PORT)
 
 	while True:
 		remote_ip, remote_port, message = receive_remote_message(server)
 		process_packet(remote_ip, remote_port, message)
-
 
 if __name__ == '__main__':
 	main()
