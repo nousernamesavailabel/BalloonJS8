@@ -10,7 +10,11 @@ MESSAGE_LOG_PATH = 'messages.txt'
 TAK_SERVER_ADDRESS = '192.168.5.14'
 TAK_SERVER_PORT = 8087
 BALLOON_CALLSIGN = 'K4WAR'
+MY_CALLSIGN = 'N0JMP'
 
+def timestamped(msg):
+    ts = datetime.now(timezone.utc).strftime("[%Y-%m-%d %H:%M:%S UTC]")
+    return f"{ts} {msg}"
 
 def log_message(message):
 	with open(LOG_PATH, 'a', encoding='utf-8') as f:
@@ -23,7 +27,7 @@ def log_message_message(message):
 def create_udp_server(address, port):
 	server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	server.bind((address, port))
-	print(f'UDP server is listening on {address}:{port}')
+	print(timestamped(f'UDP server is listening on {address}:{port}'))
 	log_message('Decoder Starting...')
 	return server
 
@@ -84,11 +88,11 @@ def process_packet(remote_ip, remote_port, data):
 		decoded = data.decode()
 		json_data = json.loads(decoded)
 	except Exception:
-		print(f"Decode error in: {data}")
-		log_message(f"Decode error in: {data}")
+		print(timestamped(f"Decode error in: {data}"))
+		log_message(timestamped(("Decode error in: {data}")))
 		return
 
-	log_message(str(json_data))
+	log_message(timestamped(str(json_data)))
 	#print(f"JS8 UDP CONNECTION: {remote_ip}:{remote_port}")
 	#print(f"json_data: {json_data.get('params', {})}")
 
@@ -101,13 +105,13 @@ def process_packet(remote_ip, remote_port, data):
 
 	if call and grid:
 		lat, lon = maidenhead_to_latlon(grid.strip())
-		print(f"\nCallsign: {call} - Maidenhead: {grid} - Lat: {lat} - Lon: {lon}")
-		log_message_message(f"\nCallsign: {call} - Maidenhead: {grid} - Lat: {lat} - Lon: {lon}")
+		print(timestamped(f"Callsign: {call} - Maidenhead: {grid} - Lat: {lat} - Lon: {lon}"))
+		log_message_message(timestamped(f"Callsign: {call} - Maidenhead: {grid} - Lat: {lat} - Lon: {lon}"))
 		send_to_tak(call, lat, lon, snr)
 
 	if text:
-		print(f"Text received: {text}")
-		log_message_message(f"Text received: {text}")
+		print(timestamped(f"Text received: {text}"))
+		log_message_message(timestamped((f"Text received: {text}")))
 
 def send_to_tak(call, lat, lon, snr):
 
@@ -143,10 +147,10 @@ def send_to_tak(call, lat, lon, snr):
 				<point lat="{lat}" lon="{lon}" hae="0" le="9999999" ce="9999999" />
 				<detail>
 				  <contact callsign="{call}" />
-				  <link type="a-f-G-E-V-A" uid="S-1-5-21-621230609-327008285-3454491554-500" parent_callsign="BalloonJS8RX" relation="p-p" production_time="{current_time_str}" />
+				  <link type="a-f-G-E-V-A" uid="S-1-5-21-621230609-327008285-3454491554-500" parent_callsign="{MY_CALLSIGN}" relation="p-p" production_time="{current_time_str}" />
 				  <archive />
 				  <usericon iconsetpath="{iconsetpath}" />
-				  <remarks>SNR: {snr}</remarks>
+				  <remarks>SNR: {snr} reported by {MY_CALLSIGN} at {current_time_str}</remarks>
 				</detail>
 			  </event>
 			</COT>"""
@@ -166,7 +170,7 @@ def send_to_tak(call, lat, lon, snr):
 
 	except Exception as e:
 		# Handle exceptions here
-		print("Error in SendCot:", str(e))
+		print(timestamped("Error in SendCot:", str(e)))
 		# Return an error status code (e.g., 500) to indicate that an exception occurred
 		return 500
 
@@ -174,7 +178,7 @@ def send_to_tak(call, lat, lon, snr):
 		if conn is not None:
 			# Close the connection if it was created
 			conn.close()
-			print(f'{call} successfully sent to TAK server {TAK_SERVER_ADDRESS}:{TAK_SERVER_PORT}\n')
+			print(timestamped(f'{call} successfully sent to TAK server {TAK_SERVER_ADDRESS}:{TAK_SERVER_PORT}\n'))
 
 def main():
 	server = create_udp_server(LISTEN_ADDRESS, JS8CALL_PORT)
