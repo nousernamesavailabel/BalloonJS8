@@ -102,18 +102,19 @@ def process_packet(remote_ip, remote_port, data):
 	grid = params.get('GRID')
 	text = params.get('TEXT')
 	snr = params.get('SNR')
+	freq = params.get('FREQ')
 
 	if call and grid:
 		lat, lon = maidenhead_to_latlon(grid.strip())
-		print(timestamped(f"Callsign: {call} - Maidenhead: {grid} - Lat: {lat} - Lon: {lon}"))
-		log_message_message(timestamped(f"Callsign: {call} - Maidenhead: {grid} - Lat: {lat} - Lon: {lon}"))
-		send_to_tak(call, lat, lon, snr)
+		print(timestamped(f"Callsign: {call} - Maidenhead: {grid} - Lat: {lat} - Lon: {lon} - Freq: {freq}"))
+		log_message_message(timestamped(f"Callsign: {call} - Maidenhead: {grid} - Lat: {lat} - Lon: {lon} - Freq: {freq}"))
+		send_to_tak(call, lat, lon, snr, freq)
 
 	if text:
-		print(timestamped(f"Text received: {text}"))
+		print(timestamped(f"Text received: {text}\n"))
 		log_message_message(timestamped((f"Text received: {text}")))
 
-def send_to_tak(call, lat, lon, snr):
+def send_to_tak(call, lat, lon, snr, freq):
 
 	try:
 
@@ -150,7 +151,7 @@ def send_to_tak(call, lat, lon, snr):
 				  <link type="a-f-G-E-V-A" uid="S-1-5-21-621230609-327008285-3454491554-500" parent_callsign="{MY_CALLSIGN}" relation="p-p" production_time="{current_time_str}" />
 				  <archive />
 				  <usericon iconsetpath="{iconsetpath}" />
-				  <remarks>SNR: {snr} reported by {MY_CALLSIGN} at {current_time_str}</remarks>
+				  <remarks>SNR: {snr} \nReported by: {MY_CALLSIGN}\nTime: {current_time_str}\nFreq: {freq}</remarks>
 				</detail>
 			  </event>
 			</COT>"""
